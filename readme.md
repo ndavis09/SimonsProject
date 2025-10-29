@@ -42,6 +42,11 @@ python manage.py runserver
 
 Then open http://127.0.0.1:8000 in your browser.  Note that you will need a Postgres database running for this.  A dockerfile is provided for this, but if you have a local instance you prefer to use, just make sure [the credentials in settings.py](https://github.com/ndavis09/SimonsProject/blob/81b8f90c7a90da917bbd7237e70708773fce4fc0/SimonsProject/settings.py#L78-L83) align with your DB.
 
+With the repo on your machine, you can run the script for part like so:
+```bash
+python efetcher.py --id 30271926 --regex "(GAATAATGC)" --context 1
+```
+
 ---
 
 ## Architecture
@@ -55,6 +60,7 @@ When a document is pulled up, either by fetch or DB retrieval, the user is taken
 Part 2 takes the suggested Python script approach.  It takes the user's parameters then hits the NIH server similarly to the Django approach (simple requests library call) but stores the retrieved data in a temporary file for processing (optionally, the user can save the call's contents in a non-temporary file by passing through the use of the `keep-files` parameter.)  The sequence is then fed to a regex matching method which scans over the sequence and returns a list of results.  Here was another architectural choice: for the sake of simplicity, I opted to load the full sequence into memory, and perform the regex search so it returns a full list of matches.  This works performantly on my desktop machine even with the 200MB file, but for larger datasets or less powerful machines, a solution that streams the data in and performs regex matching on chunks might be useful.  Additionally, if the regex matching was known in advance to be very simple, (e.g. "GATTACA") an alternative solution where we just scan text as it streams in may be viable.  In any case, once we have our list of regex matches, we pass these on to another method which builds our 'contexts' for the matching strings.  A context is how many non-matching characters on either side of the match are displayed, along with potential ellipses to indicate that the match is in the beginning, middle, or end of the sequence.  Again, for the sake of simplicity, I chose to build these context strings using list slicing of the sequence text, but the performance tradeoff here in cases with many matches should be acknowledged.  A faster approach might be to try and extract all contexts in a single pass, reducing computational complexity to O(n).  Once the contexts have been created, the program prints them out along with their character indexes like:
 `29622:"...TGAATAATGCT..."`
 (search for `--regex "(GAATAATGC)"` with `--context 1`)
+
 
 
 
