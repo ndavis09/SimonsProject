@@ -35,14 +35,16 @@ Apply database migrations
 python manage.py migrate
 ```
 
+Note that you will need a Postgres database running for this.  A dockerfile is provided, but if you have a local instance you prefer to use, just make sure [the credentials in settings.py](https://github.com/ndavis09/SimonsProject/blob/81b8f90c7a90da917bbd7237e70708773fce4fc0/SimonsProject/settings.py#L78-L83) align with your DB.
+
 Run the development server
 ```bash
 python manage.py runserver
 ```
 
-Then open http://127.0.0.1:8000 in your browser.  Note that you will need a Postgres database running for this.  A dockerfile is provided for this, but if you have a local instance you prefer to use, just make sure [the credentials in settings.py](https://github.com/ndavis09/SimonsProject/blob/81b8f90c7a90da917bbd7237e70708773fce4fc0/SimonsProject/settings.py#L78-L83) align with your DB.
+Then open http://127.0.0.1:8000 in your browser.  
 
-With the repo on your machine, you can run the script for part like so:
+With the repo on your machine, you can run the script for part 2 like so:
 
 ```bash
 python efetcher.py --id 30271926 --regex "(AATCGA|GGCAT)" --context 1
@@ -60,6 +62,7 @@ Part 2 takes the suggested Python script approach.  It takes the user's paramete
 
 `29622:"...TGAATAATGCT..."`
 (search for `--regex "(GAATAATGC)"` with `--context 1`)
+
 
 
 
