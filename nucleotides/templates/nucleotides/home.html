@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>NCBI EFetch — Home</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 2rem; }
+      form div { margin-bottom: .5rem; }
+      input[type=text] { width: 22rem; }
+      .docs { margin-top: 2rem; }
+      .msg { color: #b00; }
+      .success { color: #070; }
+    </style>
+  </head>
+  <body>
+    <h1>Fetch Data (NIH EFetch)</h1>
+
+    {% if messages %}
+      <div>
+        {% for m in messages %}
+          <div class="{{ m.tags }}">{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div>
+        <label>db</label><br />
+        {{ form.db }}
+      </div>
+      <div>
+        <label>id</label><br />
+        {{ form.accession_id }}
+      </div>
+      <div>
+        <label>rettype</label><br />
+        {{ form.rettype }}
+      </div>
+      <div>
+        <label>retmode</label><br />
+        {{ form.retmode }}
+      </div>
+      <button type="submit">Fetch & Save</button>
+    </form>
+
+    <div class="docs">
+      <h2>Recent Documents</h2>
+      <ul>
+        {% for d in docs %}
+          <li>
+            <a href="{% url 'fetch-detail' d.pk %}">{{ d }}</a>
+            — {{ d.content_length }} bytes — {{ d.fetched_at }}
+          </li>
+        {% empty %}
+          <li>No documents yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </body>
+</html>

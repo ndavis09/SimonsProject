@@ -1,0 +1,252 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ doc }}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 2rem; }
+      pre { white-space: pre-wrap; background: #f7f7f7; padding: 1rem; border-radius: 6px; }
+      a { text-decoration: none; }
+      details { margin: 1rem 0; }
+      summary { cursor: pointer; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <p><a href="{% url 'home' %}">← Back</a></p>
+    <h1>{{ doc }}</h1>
+    
+    
+    <p><strong>Size:</strong> {{ doc.content_length }} bytes</p>
+    <p><strong>SHA-256:</strong> {{ doc.sha256 }}</p>
+    <p><strong>Fetched at:</strong> {{ doc.fetched_at }}</p>
+
+    <details>
+      <summary>Metadata</summary>
+      <pre>{{ metadata_xml }}</pre>
+    </details>
+
+
+
+    <style>
+        /* floating regex box */
+        .regex-floating {
+          position: fixed;
+          right: 18px;
+          top: 18px;
+          background: #ffffff;
+          border: 1px solid #ddd;
+          border-radius: 10px;
+          padding: 10px 12px;
+          box-shadow: 0 8px 18px rgba(0,0,0,0.15);
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+          z-index: 9999;
+          width: 320px;
+        }
+        .regex-floating h3 {
+          margin: 0 0 6px 0; font-size: 14px;
+        }
+        .regex-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+        .regex-row input[type="text"] { flex: 1; }
+        .regex-row small { color: #666; }
+        .regex-actions { display: flex; gap: 6px; align-items: center; }
+        .regex-actions button { padding: 4px 8px; }
+        .regex-counter { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12px; color: #333; }
+        .regex-error { color: #b00; font-size: 12px; min-height: 16px; }
+        .sequence-block { position: relative; }
+        .sequence-block pre {
+          max-height: 60vh;
+          overflow: auto;
+          white-space: pre-wrap;   
+          overflow-wrap: anywhere;    
+          word-break: break-word;       /* older browser fallback */
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+          line-height: 1.35;
+        }
+      </style>
+      
+      <div class="regex-floating" role="region" aria-label="Regex search">
+        <h3>Regex search</h3>
+        <div class="regex-row">
+          <input id="rx-input" type="text" placeholder="e.g. (AATCGA|GGCAT)" />
+        </div>
+        <div class="regex-actions">
+          <button id="rx-search">Search</button>
+          <button id="rx-prev" disabled>&larr;</button>
+          <button id="rx-next" disabled>&rarr;</button>
+          <div class="regex-counter" id="rx-counter">0 / 0</div>
+        </div>
+        <div class="regex-error" id="rx-error"></div>
+        <small>Enter to search, arrow keys to iterate through findings.</small>
+      </div>
+      
+      <h2>Sequence</h2>
+      <p><strong>Length:</strong> {{ sequence_len }} bases</p>
+      <div class="sequence-block">
+        <!-- Warning: if sequence_text is large, things will slow to a crawl.  "Safe" slice logic below. TODO: find sweet spot char length: -->
+        <!-- <pre id="sequence-pre">{{ sequence_text|slice:":40000" }}{% if sequence_len > 40000 %}…{% endif %}</pre> -->
+        <pre id="sequence-pre">{{ sequence_text }}</pre>
+      </div>
+      
+      <script>
+      (function(){
+        const input = document.getElementById("rx-input");
+        const btnSearch = document.getElementById("rx-search");
+        const btnPrev = document.getElementById("rx-prev");
+        const btnNext = document.getElementById("rx-next");
+        const counter = document.getElementById("rx-counter");
+        const errorBox = document.getElementById("rx-error");
+        const pre = document.getElementById("sequence-pre");
+      
+        const rawSequence = pre.textContent;
+      
+        let matches = [];   // array of {start, end, text}
+        let idx = -1;       // current index in matches
+      
+        function updateCounter() {
+          if (!matches.length) {
+            counter.textContent = "0 / 0";
+          } else {
+            counter.textContent = (idx + 1) + " / " + matches.length;
+          }
+        }
+      
+        function enableNav(enabled) {
+          btnPrev.disabled = !enabled;
+          btnNext.disabled = !enabled;
+        }
+      
+        function clearError() {
+          errorBox.textContent = "";
+        }
+      
+        function showError(msg) {
+          errorBox.textContent = msg;
+        }
+      
+        function highlightCurrent() {
+          if (idx < 0 || idx >= matches.length) {
+            pre.textContent = rawSequence;
+            enableNav(false);
+            updateCounter();
+            return;
+          }
+          const m = matches[idx];
+          const before = rawSequence.slice(0, m.start);
+          const mid = rawSequence.slice(m.start, m.end);
+          const after = rawSequence.slice(m.end);
+      
+          const esc = s => s
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;");
+      
+          // expensive update but OK on smaller docs; paginated solution would help here
+          pre.innerHTML = esc(before) + "<mark>" + esc(mid) + "</mark>" + esc(after);
+      
+          // scroll the highlighted region into view
+          const mark = pre.querySelector("mark");
+          if (mark) {
+            const preRect = pre.getBoundingClientRect();
+            const markRect = mark.getBoundingClientRect();
+            const offsetTop = mark.offsetTop;
+            const lineHeight = 20; // rough guess, good enough for v1
+            pre.scrollTop = Math.max(0, offsetTop - pre.clientHeight / 2 + lineHeight);
+          }
+      
+          enableNav(true);
+          updateCounter();
+        }
+      
+        function doSearch() {
+          clearError();
+          matches = [];
+          idx = -1;
+      
+          const pattern = input.value;
+          if (!pattern) {
+            pre.textContent = rawSequence;
+            updateCounter();
+            enableNav(false);
+            return;
+          }
+      
+          const flags = "g";
+          let rx;
+          try {
+            rx = new RegExp(pattern, flags);
+          } catch (e) {
+            showError("Invalid regex: " + e.message);
+            pre.textContent = rawSequence;
+            updateCounter();
+            enableNav(false);
+            return;
+          }
+      
+          // matching with guard against 0-length loops
+          let m;
+          let lastEnd = -1;
+          while ((m = rx.exec(rawSequence)) !== null) {
+            const text = m[0];
+            // prevent zero-length progress, advance by one char if needed.
+            if (text.length === 0) {
+              const pos = rx.lastIndex;
+              matches.push({ start: pos, end: pos, text: "" });
+              rx.lastIndex = pos + 1;
+              continue;
+            }
+            const start = m.index;
+            const end = start + text.length;
+            if (end === lastEnd && rx.lastIndex === end) {
+              rx.lastIndex = end + 1;
+            }
+            lastEnd = end;
+            matches.push({ start, end, text });
+            // optional: cap matches for huge inputs; not needed for ~30KB
+            // if (matches.length > 10000) break;
+          }
+      
+          if (!matches.length) {
+            showError("No matches.");
+            pre.textContent = rawSequence;
+            updateCounter();
+            enableNav(false);
+            return;
+          }
+      
+          idx = 0;
+          highlightCurrent();
+        }
+      
+        function go(delta) {
+          if (!matches.length) return;
+          idx = (idx + delta + matches.length) % matches.length;
+          highlightCurrent();
+        }
+      
+        btnSearch.addEventListener("click", doSearch);
+        btnPrev.addEventListener("click", () => go(-1));
+        btnNext.addEventListener("click", () => go(1));
+      
+        // Keyboard shortcuts: enter to search, left/right to step
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            doSearch();
+          }
+        });
+        document.addEventListener("keydown", (e) => {
+          // Ignore when typing in inputs/textareas
+          const tag = (e.target && e.target.tagName || "").toLowerCase();
+          if (tag === "input" || tag === "textarea") return;
+          if (e.key === "ArrowRight") { go(1); }
+          if (e.key === "ArrowLeft") { go(-1); }
+        });
+      
+      })();
+      </script>
+      
+
+
+
+  </body>
+</html>
