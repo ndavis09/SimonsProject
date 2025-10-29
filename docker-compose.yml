@@ -1,7 +1,6 @@
-version: "3.9"
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: simons_pg
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-simons_db}
@@ -12,10 +11,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simons} -d ${POSTGRES_DB:-simons_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simons} -d ${POSTGRES_DB:-simons_db} -q"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
 volumes:
   pgdata:
